@@ -41,7 +41,8 @@ app.http("reactions", {
       await table().upsertEntity({ partitionKey: song, rowKey: emoji, count: Math.max(0, current + delta) }, "Merge");
       return { jsonBody: await counts(song), headers: { "Cache-Control": "no-store" } };
     } catch (err) {
-      return { status: 500, jsonBody: { error: "storage not configured" } };
+      const detail = process.env.TABLE_CONNECTION_STRING ? (err && err.message ? String(err.message).slice(0, 200) : "unknown error") : "TABLE_CONNECTION_STRING is not set";
+      return { status: 500, jsonBody: { error: "storage error", detail } };
     }
   }
 });
