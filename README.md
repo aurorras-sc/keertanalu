@@ -20,3 +20,10 @@ One-time setup after the Static Web App exists:
 2. Static Web App → Environment variables (or Configuration) → Add: name `TABLE_CONNECTION_STRING`, value = the connection string → Save.
 3. In the GitHub workflow file, set `api_location: "api"`.
 Until this is done the buttons still work but counts are per device only.
+
+## Adding songs the easy way (admin page)
+Open `https://<your-site>/admin.html`, enter the admin password, paste the Suno link, check the details, Publish. The song is committed to `songs.js` on GitHub and the site redeploys in ~2 minutes.
+One-time setup — three environment variables on the Static Web App:
+- `ADMIN_PASSWORD` — any strong password you choose
+- `GITHUB_REPO` — `aurorras-sc/keertanalu`
+- `GITHUB_TOKEN` — a fine-grained GitHub token for that repo with Contents: Read and write (set a long expiry; renew when it expires)

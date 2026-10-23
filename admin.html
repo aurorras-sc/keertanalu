@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
+<title>Add a song — కీర్తనలు admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Serif+Telugu:wght@400;600&family=Noto+Sans+Telugu&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F4F6FA;--surface:#fff;--ink:#0F1730;--ink-2:#3A4668;--mute:#7C869F;--rule:#E3E7F0;--accent:#F2A900;--ok:#1E9E5A;--err:#C9304A}
+@media (prefers-color-scheme:dark){:root{--bg:#0E1322;--surface:#161C30;--ink:#F2F4FA;--ink-2:#C3CBE3;--mute:#8A94B2;--rule:#263050}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Manrope,"Noto Sans Telugu",system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.55;padding:28px 18px 80px}
+.w{max-width:620px;margin:0 auto}
+h1{font-size:24px;font-weight:800;margin-bottom:4px}
+.sub{color:var(--mute);font-size:14px;margin-bottom:22px}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:18px;padding:22px;margin-bottom:16px}
+label{display:block;font-size:13px;font-weight:700;color:var(--ink-2);margin:14px 0 6px}
+label:first-child{margin-top:0}
+input,textarea{width:100%;font:inherit;font-size:16px;padding:12px 14px;border-radius:12px;border:1px solid var(--rule);background:var(--bg);color:var(--ink)}
+input:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(242,169,0,.25)}
+textarea{min-height:220px;font-family:"Noto Serif Telugu",serif;font-size:17px;line-height:1.8}
+.row{display:flex;gap:10px;align-items:flex-end}
+.row>*{flex:1}
+button{font:inherit;font-weight:800;font-size:15px;padding:13px 20px;border-radius:999px;border:0;cursor:pointer;background:var(--ink);color:var(--bg)}
+button.gold{background:var(--accent);color:#1A1400}
+button:disabled{opacity:.5;cursor:default}
+.prev{display:grid;grid-template-columns:120px 1fr;gap:16px;align-items:center;margin-top:6px}
+.prev img{width:120px;height:120px;border-radius:14px;object-fit:cover;background:var(--rule)}
+.prev h2{font-family:"Noto Serif Telugu",serif;font-size:22px;font-weight:600;line-height:1.3}
+.msg{margin-top:14px;font-size:14.5px;font-weight:700;display:none}
+.msg.ok{display:block;color:var(--ok)}.msg.err{display:block;color:var(--err)}
+.help{font-size:13px;color:var(--mute);margin-top:6px}
+#step2{display:none}
+a{color:inherit}
+</style>
+</head>
+<body>
+<div class="w">
+  <h1>Add a song</h1>
+  <p class="sub">Paste the Suno share link. The title, artwork and lyrics are filled in for you.</p>
+
+  <div class="card" id="step1">
+    <label>Admin password</label>
+    <input id="pw" type="password" autocomplete="current-password">
+    <label>Suno song link</label>
+    <div class="row"><input id="url" type="url" placeholder="https://suno.com/song/…"><button id="fetch" style="flex:0 0 auto">Fetch</button></div>
+    <p class="help">The song must be set to Public on Suno first.</p>
+    <div class="msg" id="m1"></div>
+  </div>
+
+  <div class="card" id="step2">
+    <div class="prev"><img id="img" alt=""><div><h2 id="t"></h2><p class="help" id="idl"></p></div></div>
+    <label>Title (Telugu)</label><input id="title">
+    <label>English meaning</label><input id="english" placeholder="e.g. Lord, have mercy on me">
+    <label>Tags (comma separated)</label><input id="tags" placeholder="worship, prayer, christmas, easter, praise">
+    <label>Date</label><input id="date" type="date">
+    <label>Lyrics</label><textarea id="lyrics"></textarea>
+    <p class="help">Production notes like [Intro] and (guitar) were removed and repeated lines merged. Edit freely. A blank line starts a new verse.</p>
+    <div class="row" style="margin-top:18px"><button class="gold" id="publish">Publish song</button></div>
+    <div class="msg" id="m2"></div>
+  </div>
+</div>
+<script>
+(function(){
+  var $=function(i){return document.getElementById(i);};
+  function msg(el,text,cls){el.textContent=text;el.className='msg '+cls;}
+  function key(){return $('pw').value.trim();}
+  try{$('pw').value=sessionStorage.getItem('k')||'';}catch(e){}
+  $('date').value=new Date().toISOString().slice(0,10);
+  $('fetch').addEventListener('click',function(){
+    if(!key()){msg($('m1'),'Enter the admin password.','err');return;}
+    try{sessionStorage.setItem('k',key());}catch(e){}
+    $('fetch').disabled=true;msg($('m1'),'Fetching from Suno…','ok');
+    fetch('api/admin/fetch',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':key()},body:JSON.stringify({url:$('url').value.trim()})})
+    .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});})
+    .then(function(x){$('fetch').disabled=false;
+      if(!x.ok){msg($('m1'),x.d.error||'Could not fetch.','err');return;}
+      msg($('m1'),'Found it. Check the details below.','ok');
+      $('img').src=x.d.image;$('t').textContent=x.d.title;$('idl').textContent='Song id '+x.d.id;
+      $('title').value=x.d.title;$('lyrics').value=x.d.lyrics;$('english').value='';$('tags').value='';
+      $('step2').style.display='block';$('step2').scrollIntoView({behavior:'smooth'});
+    }).catch(function(){$('fetch').disabled=false;msg($('m1'),'Network error. Try again.','err');});
+  });
+  $('publish').addEventListener('click',function(){
+    $('publish').disabled=true;msg($('m2'),'Publishing…','ok');
+    var body={url:$('url').value.trim(),title:$('title').value.trim(),english:$('english').value.trim(),tags:$('tags').value.split(',').map(function(t){return t.trim();}).filter(Boolean),date:$('date').value,lyrics:$('lyrics').value.trim()};
+    fetch('api/admin/publish',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':key()},body:JSON.stringify(body)})
+    .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});})
+    .then(function(x){
+      if(!x.ok){$('publish').disabled=false;msg($('m2'),x.d.error||'Could not publish.','err');return;}
+      msg($('m2'),'Published. The site updates itself in about two minutes. You can add another song.','ok');
+      setTimeout(function(){$('publish').disabled=false;$('step2').style.display='none';$('url').value='';window.scrollTo(0,0);},2500);
+    }).catch(function(){$('publish').disabled=false;msg($('m2'),'Network error. Try again.','err');});
+  });
+})();
+</script>
+</body>
+</html>
