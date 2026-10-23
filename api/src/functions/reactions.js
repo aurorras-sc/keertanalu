@@ -3,6 +3,7 @@
 // POST /api/reactions { song, emoji, delta } -> same, after applying +1 / -1
 const { app } = require("@azure/functions");
 const { TableClient } = require("@azure/data-tables");
+const { BlobServiceClient } = require("@azure/storage-blob");
 
 const ALLOWED = ["🙏", "❤️", "✝️", "🕊️", "🙌", "😢"];
 const ID = /^[0-9a-f-]{36}$/i;
@@ -42,6 +43,44 @@ function cleanLyrics(raw) {
 }
 
 
+// Copy a song's MP3 from Suno into our own Blob container and return its public URL.
+async function storeAudio(id) {
+  const svc = BlobServiceClient.fromConnectionString(process.env.TABLE_CONNECTION_STRING);
+  const container = svc.getContainerClient("songs");
+  await container.createIfNotExists({ access: "blob" });
+  const blob = container.getBlockBlobClient(id + ".mp3");
+  if (!(await blob.exists())) {
+    const r = await fetch("https://cdn1.suno.ai/" + id + ".mp3", { headers: { "User-Agent": "Mozilla/5.0" } });
+    if (!r.ok) throw new Error("Suno audio returned " + r.status);
+    const buf = Buffer.from(await r.arrayBuffer());
+    await blob.uploadData(buf, { blobHTTPHeaders: { blobContentType: "audio/mpeg", blobCacheControl: "public, max-age=31536000" } });
+  }
+  return blob.url;
+}
+async function adminAudioOp(req) {
+  if (!authed(req)) return { status: 401, jsonBody: { error: "wrong password" } };
+  // Backfill: give every song in songs.js an audio file, commit once.
+  const repo = process.env.GITHUB_REPO, token = process.env.GITHUB_TOKEN;
+  const gh = (path, opt = {}) => fetch("https://api.github.com/repos/" + repo + "/contents/" + path, {
+    ...opt, headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "User-Agent": "keertanalu-admin", ...(opt.headers || {}) } });
+  const cur = await (await gh("songs.js")).json();
+  let text = Buffer.from(cur.content, "base64").toString("utf8");
+  const ids = [...text.matchAll(/url: "https:\/\/suno\.com\/song\/([0-9a-f-]{36})/g)].map(m => m[1]);
+  const done = [], failed = [];
+  for (const id of ids) {
+    if (new RegExp('audio: "[^"]*' + id).test(text)) continue;
+    try {
+      const url = await storeAudio(id);
+      text = text.replace(new RegExp('(url: "https:\\/\\/suno\\.com\\/song\\/' + id + '[^\n]*\n)'), '$1    audio: ' + JSON.stringify(url) + ',\n');
+      done.push(id);
+    } catch (e) { failed.push(id + ": " + e.message); }
+  }
+  if (done.length) {
+    const put = await (await gh("songs.js", { method: "PUT", body: JSON.stringify({ message: "Store audio for " + done.length + " song(s)", content: Buffer.from(text, "utf8").toString("base64"), sha: cur.sha }) })).json();
+    if (!put.commit) return { status: 500, jsonBody: { error: "GitHub refused the update: " + (put.message || "") } };
+  }
+  return { jsonBody: { stored: done.length, failed } };
+}
 async function adminFetchOp(req) {
     if (!authed(req)) return { status: 401, jsonBody: { error: "wrong password" } };
     let { url } = await req.json();
@@ -76,9 +115,12 @@ async function adminPublishOp(req) {
     let text = Buffer.from(cur.content, "base64").toString("utf8");
     const id = SONG.exec(s.url)[1];
     if (text.includes(id)) return { status: 409, jsonBody: { error: "This song is already on the site" } };
+    let audio = "";
+    try { audio = await storeAudio(id); } catch (e) { audio = ""; }
     const block = [
       "  {",
       "    url: " + JSON.stringify(s.url) + ",",
+      "    audio: " + JSON.stringify(audio) + ",",
       "    title: " + JSON.stringify(s.title) + ",",
       "    english: " + JSON.stringify(s.english || "") + ",",
       "    tags: " + JSON.stringify((s.tags || []).map(t => String(t).trim().toLowerCase()).filter(Boolean)) + ",",
@@ -102,6 +144,7 @@ app.http("reactions", {
     if (op === "health") return { jsonBody: { ok: true, passwordSet: !!process.env.ADMIN_PASSWORD, repoSet: !!process.env.GITHUB_REPO, tokenSet: !!process.env.GITHUB_TOKEN } };
     if (op === "fetch") return adminFetchOp(req);
     if (op === "publish") return adminPublishOp(req);
+    if (op === "audio") return adminAudioOp(req);
     try {
       await table().createTable().catch(() => {});
       if (req.method === "GET") {

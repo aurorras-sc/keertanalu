@@ -198,6 +198,22 @@ svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-lin
 .sheet .opts .wa{background:#25D366;border-color:#25D366;color:#073b1e}
 .sheet .close{margin-top:10px;width:100%;background:none;border:0;color:var(--mute);font-weight:700;padding:10px}
 @media (max-width:900px){.verses{column-count:1}.backdrop{height:460px}.coverwrap{width:66%;max-width:280px;margin:0 auto}.cover{width:100%;max-width:none;margin:0}}
+
+/* own audio player */
+.head .no{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--rule);color:var(--ink-2)}
+.head .no b{color:var(--ink)}
+.ap{display:grid;grid-template-columns:64px 1fr;gap:16px;align-items:center;padding:14px 18px 14px 14px;background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);box-shadow:0 20px 50px -30px rgba(15,23,48,.5)}
+.ap .btn{width:64px;height:64px;border-radius:50%;border:0;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;box-shadow:0 10px 24px -8px var(--glow);transition:transform .15s}
+.ap .btn:active{transform:scale(.95)}
+.ap .btn svg{width:26px;height:26px;fill:currentColor;stroke:none}
+.ap .btn .pa{display:none}.ap.playing .btn .pl{display:none}.ap.playing .btn .pa{display:block}
+.ap .bar{display:grid;gap:8px}
+.ap .times{display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;color:var(--mute);font-variant-numeric:tabular-nums}
+.ap input[type=range]{width:100%;height:6px;-webkit-appearance:none;appearance:none;background:linear-gradient(to right,var(--accent) var(--p,0%),var(--surface-2) var(--p,0%));border-radius:999px;outline:none;cursor:pointer}
+.ap input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid var(--accent);box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.ap input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--accent)}
+.ap .st{font-size:12.5px;color:var(--mute);font-weight:600}
+.playerbox[hidden],.ap[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -234,7 +250,12 @@ svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-lin
             </div>
           </div>
         </div>
-        <div class="playerbox"><iframe class="frame" id="frame" title="Song player" allow="autoplay; clipboard-write" loading="lazy"></iframe></div>
+        <div class="ap" id="ap" hidden>
+          <button class="btn" id="ap-btn" type="button" aria-label="Play"><svg class="pl" viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg><svg class="pa" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></button>
+          <div class="bar"><input type="range" id="ap-seek" min="0" max="1000" value="0" aria-label="Seek"><div class="times"><span id="ap-cur">0:00</span><span class="st" id="ap-st"></span><span id="ap-dur">0:00</span></div></div>
+          <audio id="audio" preload="metadata"></audio>
+        </div>
+        <div class="playerbox" id="sunobox"><iframe class="frame" id="frame" title="Song player" allow="autoplay; clipboard-write" loading="lazy"></iframe></div>
         <p class="hint">Press play in the player above.</p>
         <div class="react" id="react" role="group" aria-label="React to this song"></div>
         <section class="lyrics" id="lyrics">
@@ -300,13 +321,15 @@ svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-lin
   var cur=null;
   function show(id,push){
     var s=raw.filter(function(x){return x.id===id;})[0];if(!s)return;
+    if(cur&&cur.id!==id){try{au.pause();}catch(e){}}
     cur=s;
     $('welcome').hidden=true;$('now').hidden=false;
     $('bd').src=cover(id);$('s-art').src=cover(id);$('s-glow').src=cover(id);
     $('s-no').textContent=s.no;
     $('s-tags').textContent=(s.tags||[]).length?' · '+(s.tags||[]).join(', '):'';
     $('s-title').textContent=s.title;$('s-en').textContent=s.english||'';
-    $('frame').src='https://suno.com/embed/'+id;
+    if(s.audio){$('ap').hidden=false;$('sunobox').hidden=true;$('frame').src='about:blank';loadAudio(s);}
+    else{$('ap').hidden=true;$('sunobox').hidden=false;$('frame').src='https://suno.com/embed/'+id;}
     var verses=(s.lyrics||'').trim().split(/\n\s*\n/).filter(Boolean);
     $('verses').innerHTML=verses.length?verses.map(function(v,i){return '<p data-l="'+(i===0?'పల్లవి':'చరణం '+i)+'">'+esc(v).replace(/\n/g,'<br>')+'</p>';}).join(''):'<p class="nolyrics">Lyrics have not been added for this song yet.</p>';
     $('lyrics').style.display=verses.length?'':'none';
@@ -360,6 +383,20 @@ svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-lin
   document.addEventListener('keydown',function(e){if(e.key==='Escape')proj(false);});
   $('p-plus').addEventListener('click',function(){pfs=Math.min(90,pfs+6);document.documentElement.style.setProperty('--pfs',pfs+'px');});
   $('p-minus').addEventListener('click',function(){pfs=Math.max(22,pfs-6);document.documentElement.style.setProperty('--pfs',pfs+'px');});
+
+  // Own audio player (used when a song has its own audio file)
+  var au=$('audio'),ap=$('ap'),seek=$('ap-seek');
+  function fmt(t){t=Math.max(0,t|0);return Math.floor(t/60)+':'+('0'+(t%60)).slice(-2);}
+  function loadAudio(s){ap.classList.remove('playing');au.src=s.audio;seek.value=0;seek.style.setProperty('--p','0%');$('ap-cur').textContent='0:00';$('ap-dur').textContent='0:00';$('ap-st').textContent='';}
+  $('ap-btn').addEventListener('click',function(){if(au.paused){au.play().catch(function(){$('ap-st').textContent='Could not play';});}else{au.pause();}});
+  au.addEventListener('play',function(){ap.classList.add('playing');$('ap-btn').setAttribute('aria-label','Pause');});
+  au.addEventListener('pause',function(){ap.classList.remove('playing');$('ap-btn').setAttribute('aria-label','Play');});
+  au.addEventListener('loadedmetadata',function(){$('ap-dur').textContent=fmt(au.duration);});
+  au.addEventListener('timeupdate',function(){if(au.duration){var p=au.currentTime/au.duration;seek.value=Math.round(p*1000);seek.style.setProperty('--p',(p*100)+'%');}$('ap-cur').textContent=fmt(au.currentTime);});
+  au.addEventListener('ended',function(){var n=$('next');if(!n.disabled){n.click();setTimeout(function(){au.play().catch(function(){});},400);}});
+  au.addEventListener('error',function(){$('ap-st').textContent='Audio unavailable';});
+  seek.addEventListener('input',function(){if(au.duration){au.currentTime=seek.value/1000*au.duration;}});
+  if('mediaSession' in navigator){au.addEventListener('play',function(){navigator.mediaSession.metadata=new MediaMetadata({title:cur.title,artist:'కీర్తనలు',artwork:[{src:cover(cur.id),sizes:'512x512',type:'image/jpeg'}]});});}
 
   // Reactions. Counts come from /api/reactions when the site is hosted on Azure;
   // until then they are kept on this device only.
