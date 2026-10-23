@@ -1,4 +1,8 @@
 {
   "platform": { "apiRuntime": "node:20" },
-  "navigationFallback": { "rewrite": "/index.html", "exclude": ["/api/*", "/s/*", "/admin.html"] }
+  "navigationFallback": { "rewrite": "/index.html", "exclude": ["/api/*", "/s/*", "/admin.html"] },
+  "routes": [
+    { "route": "/admin.html", "headers": { "Cache-Control": "no-store" } },
+    { "route": "/songs.js", "headers": { "Cache-Control": "no-cache" } }
+  ]
 }
