@@ -22,7 +22,7 @@ function cleanLyrics(raw) {
 }
 
 app.http("adminFetch", {
-  route: "admin/fetch", methods: ["POST"], authLevel: "anonymous",
+  methods: ["POST"], authLevel: "anonymous",
   handler: async (req) => {
     if (!authed(req)) return { status: 401, jsonBody: { error: "wrong password" } };
     let { url } = await req.json();
@@ -47,7 +47,7 @@ app.http("adminFetch", {
 });
 
 app.http("adminPublish", {
-  route: "admin/publish", methods: ["POST"], authLevel: "anonymous",
+  methods: ["POST"], authLevel: "anonymous",
   handler: async (req) => {
     if (!authed(req)) return { status: 401, jsonBody: { error: "wrong password" } };
     const s = await req.json();
