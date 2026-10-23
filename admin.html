@@ -51,6 +51,11 @@ a{color:inherit}
     <p class="help" style="margin-bottom:12px">Songs play from your own storage with your own player. New songs are stored automatically when published. Press this after changing a cover image on Suno, or once for songs added earlier.</p>
     <button id="audio" type="button">Sync audio and covers from Suno</button>
     <div class="msg" id="m3"></div>
+    <label style="margin-top:22px">Upload an MP3 yourself</label>
+    <p class="help" style="margin-bottom:10px">If Suno blocks the automatic copy: in the Suno app open the song → ⋯ → Download → MP3 Audio, then choose it here.</p>
+    <div class="row"><select id="up-song"></select></div>
+    <div class="row" style="margin-top:10px"><input id="up-file" type="file" accept="audio/mpeg,.mp3"><button id="up-btn" type="button" style="flex:0 0 auto">Upload</button></div>
+    <div class="msg" id="m4"></div>
   </div>
 
   <div class="card" id="step2">
@@ -96,6 +101,22 @@ a{color:inherit}
       if(!x.ok){msg($('m3'),x.d.error||'Failed.','err');return;}
       msg($('m3'),'Synced '+x.d.stored+' song(s).'+(x.d.failed.length?' Failed: '+x.d.failed.join('; '):'')+(x.d.stored?' The site updates in about two minutes.':''),'ok');
     }).catch(function(e){$('audio').disabled=false;msg($('m3'),'Could not reach the server: '+e.message,'err');});
+  });
+  // song list for the upload dropdown
+  fetch('api/reactions?op=songs').then(function(r){return r.json();}).then(function(list){
+    $('up-song').innerHTML=list.map(function(s){return '<option value="'+s.id+'">'+(s.audio?'✓ ':'')+s.title+'</option>';}).join('')||'<option value="">No songs yet</option>';
+  }).catch(function(){});
+  $('up-btn').addEventListener('click',function(){
+    var f=$('up-file').files[0],id=$('up-song').value;
+    if(!key()){msg($('m4'),'Enter the admin password above.','err');return;}
+    if(!f||!id){msg($('m4'),'Choose a song and an MP3 file.','err');return;}
+    $('up-btn').disabled=true;msg($('m4'),'Uploading '+Math.round(f.size/1048576*10)/10+' MB…','ok');
+    fetch('api/reactions?op=upload&song='+id,{method:'POST',headers:{'x-admin-key':key(),'Content-Type':'audio/mpeg'},body:f})
+    .then(function(r){return r.text().then(function(t){var d;try{d=JSON.parse(t);}catch(e){d={error:'Server replied '+r.status};}return {ok:r.ok,d:d};});})
+    .then(function(x){$('up-btn').disabled=false;
+      if(!x.ok){msg($('m4'),x.d.error||'Upload failed.','err');return;}
+      msg($('m4'),'Uploaded. The site switches to your player for this song in about two minutes.','ok');$('up-file').value='';
+    }).catch(function(e){$('up-btn').disabled=false;msg($('m4'),'Could not reach the server: '+e.message,'err');});
   });
   $('publish').addEventListener('click',function(){
     $('publish').disabled=true;msg($('m2'),'Publishing…','ok');

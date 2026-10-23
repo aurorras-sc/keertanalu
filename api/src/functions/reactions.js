@@ -50,8 +50,12 @@ async function storeAudio(id) {
   await container.createIfNotExists({ access: "blob" });
   const blob = container.getBlockBlobClient(id + ".mp3");
   if (!(await blob.exists())) {
-    const r = await fetch("https://cdn1.suno.ai/" + id + ".mp3", { headers: { "User-Agent": "Mozilla/5.0" } });
-    if (!r.ok) throw new Error("Suno audio returned " + r.status);
+    const hdr = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36", "Referer": "https://suno.com/", "Origin": "https://suno.com", "Accept": "audio/mpeg,*/*" };
+    let r = null, status = 0;
+    for (const u of ["https://cdn1.suno.ai/" + id + ".mp3", "https://audiopipe.suno.ai/?item_id=" + id]) {
+      try { const x = await fetch(u, { headers: hdr, redirect: "follow" }); if (x.ok) { r = x; break; } status = x.status; } catch (e) {}
+    }
+    if (!r) throw new Error("Suno audio returned " + status + " (upload the MP3 in the admin page instead)");
     const buf = Buffer.from(await r.arrayBuffer());
     await blob.uploadData(buf, { blobHTTPHeaders: { blobContentType: "audio/mpeg", blobCacheControl: "public, max-age=31536000" } });
   }
@@ -101,6 +105,31 @@ async function adminAudioOp(req) {
     if (!put.commit) return { status: 500, jsonBody: { error: "GitHub refused the update: " + (put.message || "") } };
   }
   return { jsonBody: { stored: done.length, failed } };
+}
+async function adminUploadOp(req) {
+  if (!authed(req)) return { status: 401, jsonBody: { error: "wrong password" } };
+  const id = req.query.get("song");
+  if (!/^[0-9a-f-]{36}$/i.test(id || "")) return { status: 400, jsonBody: { error: "bad song id" } };
+  const buf = Buffer.from(await req.arrayBuffer());
+  if (buf.length < 50000) return { status: 400, jsonBody: { error: "That file is too small to be a song" } };
+  const svc = BlobServiceClient.fromConnectionString(process.env.TABLE_CONNECTION_STRING);
+  const container = svc.getContainerClient("songs");
+  await container.createIfNotExists({ access: "blob" });
+  const blob = container.getBlockBlobClient(id + ".mp3");
+  await blob.uploadData(buf, { blobHTTPHeaders: { blobContentType: "audio/mpeg", blobCacheControl: "public, max-age=31536000" } });
+  // write audio: into songs.js
+  const repo = process.env.GITHUB_REPO, token = process.env.GITHUB_TOKEN;
+  const gh = (path, opt = {}) => fetch("https://api.github.com/repos/" + repo + "/contents/" + path, {
+    ...opt, headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "User-Agent": "keertanalu-admin", ...(opt.headers || {}) } });
+  const cur = await (await gh("songs.js")).json();
+  let text = Buffer.from(cur.content, "base64").toString("utf8");
+  const line = new RegExp('(url: "https:\\/\\/suno\\.com\\/song\\/' + id + '[^\n]*\n)');
+  if (!line.test(text)) return { status: 404, jsonBody: { error: "That song is not in songs.js" } };
+  text = text.replace(new RegExp('\n\\s*audio: "[^"]*",(?=[\\s\\S]*' + id + ')'), (m, off) => m); // keep
+  text = text.replace(new RegExp('(url: "https:\\/\\/suno\\.com\\/song\\/' + id + '[^\n]*\n)(\\s*audio: "[^"]*",\n)?'), '$1    audio: ' + JSON.stringify(blob.url + "?v=" + Date.now().toString(36)) + ',\n');
+  const put = await (await gh("songs.js", { method: "PUT", body: JSON.stringify({ message: "Upload audio for " + id, content: Buffer.from(text, "utf8").toString("base64"), sha: cur.sha }) })).json();
+  if (!put.commit) return { status: 500, jsonBody: { error: "GitHub refused the update: " + (put.message || "") } };
+  return { jsonBody: { ok: true, size: buf.length } };
 }
 async function adminFetchOp(req) {
     if (!authed(req)) return { status: 401, jsonBody: { error: "wrong password" } };
@@ -168,6 +197,8 @@ app.http("reactions", {
     if (op === "fetch") return adminFetchOp(req);
     if (op === "publish") return adminPublishOp(req);
     if (op === "audio") return adminAudioOp(req);
+    if (op === "upload") return adminUploadOp(req);
+    if (op === "songs") { const t = await (await fetch("https://raw.githubusercontent.com/" + process.env.GITHUB_REPO + "/main/songs.js")).text(); const list = [...t.matchAll(/url: "https:\/\/suno\.com\/song\/([0-9a-f-]{36})[^\n]*\n(?:\s*audio: "([^"]*)",\n)?(?:\s*image: "[^"]*",\n)?\s*title: "([^"]*)"/g)].map(m => ({ id: m[1], audio: !!m[2], title: m[3] })); return { jsonBody: list, headers: { "Cache-Control": "no-store" } }; }
     try {
       await table().createTable().catch(() => {});
       if (req.method === "GET") {
