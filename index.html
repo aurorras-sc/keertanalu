@@ -164,6 +164,40 @@ svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-lin
   .frame{height:220px}
 }
 @media (prefers-reduced-motion:reduce){.backdrop img,.b,.nav button,.toast{transition:none}}
+
+/* v2 polish */
+.song{grid-template-columns:52px 1fr auto}
+.song .art{width:52px;height:52px;order:-1}
+.song .no{order:3;font-size:12px;display:flex;align-items:center;gap:8px}
+.eq{display:none;align-items:flex-end;gap:2px;height:14px;width:16px}
+.eq i{display:block;width:3px;background:var(--accent);border-radius:2px;animation:eq 1s ease-in-out infinite}
+.eq i:nth-child(2){animation-delay:-.3s}.eq i:nth-child(3){animation-delay:-.6s}
+@keyframes eq{0%,100%{height:4px}50%{height:14px}}
+.song.on .eq{display:flex}
+.song.on .no::before{display:none}
+.masthead .count{font-size:12.5px;color:var(--mute);font-weight:600;margin-top:2px}
+.stage .in{padding-top:36px}
+.backdrop{height:640px}
+.backdrop img{opacity:.75;filter:blur(90px) saturate(1.6)}
+.backdrop::after{background:linear-gradient(to bottom,transparent 10%,var(--bg) 88%)}
+.coverwrap{position:relative}
+.coverwrap .glow{position:absolute;inset:8% 8% -4% 8%;border-radius:30px;filter:blur(40px);opacity:.6;z-index:-1}
+.coverwrap .glow img{width:100%;height:100%;object-fit:cover;border-radius:30px}
+.head{align-items:center}
+.hint{display:none}
+.verses{max-width:none;column-count:2;column-gap:40px;padding-top:12px}
+.verses p{break-inside:avoid;padding-left:0;border-left:0;margin-bottom:22px}
+.verses p::before{content:attr(data-l);display:block;font-family:var(--ui);font-size:11.5px;font-weight:800;color:var(--accent-deep);margin-bottom:4px;letter-spacing:.02em}
+.sheet{position:fixed;inset:0;z-index:85;background:rgba(10,14,30,.45);display:none;align-items:flex-end;justify-content:center;padding:16px}
+.sheet.on{display:flex}
+.sheet .box{background:var(--surface);color:var(--ink);border-radius:22px;padding:20px;width:min(440px,100%);box-shadow:0 30px 80px rgba(0,0,0,.35)}
+.sheet h4{font-size:15px;font-weight:800;margin-bottom:4px}
+.sheet .u{font-size:13px;color:var(--mute);word-break:break-all;margin-bottom:14px}
+.sheet .opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sheet .opts a,.sheet .opts button{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;border-radius:14px;border:1px solid var(--rule);background:var(--surface-2);font-weight:700;font-size:14px;text-decoration:none;color:inherit}
+.sheet .opts .wa{background:#25D366;border-color:#25D366;color:#073b1e}
+.sheet .close{margin-top:10px;width:100%;background:none;border:0;color:var(--mute);font-weight:700;padding:10px}
+@media (max-width:900px){.verses{column-count:1}.backdrop{height:460px}.coverwrap{width:66%;max-width:280px;margin:0 auto}.cover{width:100%;max-width:none;margin:0}}
 </style>
 </head>
 <body>
@@ -171,7 +205,7 @@ svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-lin
 
   <aside class="index">
     <div class="masthead">
-      <h1>కీర్తనలు<small>Telugu Christian songs</small></h1>
+      <h1>కీర్తనలు<small>Telugu Christian songs</small><div class="count" id="count"></div></h1>
       <button class="theme" id="theme" type="button" aria-label="Switch light or dark"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-1-.1-1.4A7 7 0 0 1 12 3z"/></svg></button>
     </div>
     <div class="tools">
@@ -179,7 +213,7 @@ svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-lin
       <div class="filters" id="filters"><button class="f on" data-tag="">All</button></div>
     </div>
     <div class="songs" id="songs" role="list"></div>
-    <div class="colophon">Original Telugu Christian songs</div>
+    
   </aside>
 
   <main class="stage" id="stage">
@@ -189,7 +223,7 @@ svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-lin
       <div id="now" hidden>
         <button class="back" id="back" type="button"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>All songs</button>
         <div class="head">
-          <div class="cover"><img id="s-art" alt=""></div>
+          <div class="coverwrap"><div class="glow" aria-hidden="true"><img id="s-glow" alt=""></div><div class="cover"><img id="s-art" alt=""></div></div>
           <div>
             <div class="no">Song <b id="s-no"></b> <span id="s-tags"></span></div>
             <h2 id="s-title"></h2>
@@ -229,6 +263,7 @@ svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-lin
   <div class="text" id="p-text"></div>
 </div>
 
+<div class="sheet" id="sheet" role="dialog" aria-label="Share this song"><div class="box"><h4 id="sh-t"></h4><div class="u" id="sh-u"></div><div class="opts"><a class="wa" id="sh-wa" href="#" target="_blank" rel="noopener">WhatsApp</a><button id="sh-copy" type="button">Copy link</button><button id="sh-more" type="button" style="grid-column:1/-1">More options…</button></div><button class="close" id="sh-x" type="button">Close</button></div></div>
 <div class="toast" id="toast"></div>
 <script src="songs.js"></script>
 <script>
@@ -256,9 +291,9 @@ svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-lin
       if(tag&&(s.tags||[]).indexOf(tag)<0)return false;
       return !term||[s.title,s.english,s.lyrics,(s.tags||[]).join(' ')].join(' ').toLowerCase().indexOf(term)>=0;});
     $('songs').innerHTML=list.length?list.map(function(s){
-      return '<button class="song'+(cur&&cur.id===s.id?' on':'')+'" data-id="'+s.id+'" role="listitem"><span class="no">'+s.no+'</span>'+
+      return '<button class="song'+(cur&&cur.id===s.id?' on':'')+'" data-id="'+s.id+'" role="listitem"><img class="art" src="'+cover(s.id)+'" alt="" loading="lazy">'+
         '<span class="t">'+esc(s.title)+(s.english?'<small>'+esc(s.english)+'</small>':'')+'</span>'+
-        '<img class="art" src="'+cover(s.id)+'" alt="" loading="lazy"></button>';}).join('')
+        '<span class="no"><span class="eq"><i></i><i></i><i></i></span>'+s.no+'</span></button>';}).join('')
       :'<div class="none">No song matches that. Try a word from the title or a line of the lyrics.</div>';
   }
 
@@ -267,13 +302,13 @@ svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-lin
     var s=raw.filter(function(x){return x.id===id;})[0];if(!s)return;
     cur=s;
     $('welcome').hidden=true;$('now').hidden=false;
-    $('bd').src=cover(id);$('s-art').src=cover(id);
+    $('bd').src=cover(id);$('s-art').src=cover(id);$('s-glow').src=cover(id);
     $('s-no').textContent=s.no;
     $('s-tags').textContent=(s.tags||[]).length?' · '+(s.tags||[]).join(', '):'';
     $('s-title').textContent=s.title;$('s-en').textContent=s.english||'';
     $('frame').src='https://suno.com/embed/'+id;
     var verses=(s.lyrics||'').trim().split(/\n\s*\n/).filter(Boolean);
-    $('verses').innerHTML=verses.length?verses.map(function(v){return '<p>'+esc(v).replace(/\n/g,'<br>')+'</p>';}).join(''):'<p class="nolyrics">Lyrics have not been added for this song yet.</p>';
+    $('verses').innerHTML=verses.length?verses.map(function(v,i){return '<p data-l="'+(i===0?'పల్లవి':'చరణం '+i)+'">'+esc(v).replace(/\n/g,'<br>')+'</p>';}).join(''):'<p class="nolyrics">Lyrics have not been added for this song yet.</p>';
     $('lyrics').style.display=verses.length?'':'none';
     $('s-proj').hidden=!verses.length;
     $('p-title').textContent=s.title;
@@ -298,9 +333,15 @@ svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-lin
   function shareUrl(s){var base=location.origin+location.pathname.replace(/[^\/]*$/,'');return base+'s/'+s.no;}
   $('s-share').addEventListener('click',function(){
     var url=shareUrl(cur),text=cur.title+(cur.english?' — '+cur.english:'');
-    if(navigator.share){navigator.share({title:cur.title,text:text,url:url}).catch(function(){});}
-    else{navigator.clipboard.writeText(url).then(function(){toast('Link copied');});}
+    $('sh-t').textContent=cur.title;$('sh-u').textContent=url;
+    $('sh-wa').href='https://wa.me/?text='+encodeURIComponent(text+'\n'+url);
+    $('sh-more').style.display=navigator.share?'':'none';
+    $('sheet').classList.add('on');
   });
+  $('sh-copy').addEventListener('click',function(){navigator.clipboard.writeText($('sh-u').textContent).then(function(){toast('Link copied');$('sheet').classList.remove('on');});});
+  $('sh-more').addEventListener('click',function(){navigator.share({title:cur.title,text:cur.title,url:$('sh-u').textContent}).catch(function(){});$('sheet').classList.remove('on');});
+  $('sh-x').addEventListener('click',function(){$('sheet').classList.remove('on');});
+  $('sheet').addEventListener('click',function(e){if(e.target===$('sheet'))$('sheet').classList.remove('on');});
   // theme
   var root=document.documentElement;
   $('theme').addEventListener('click',function(){
@@ -362,6 +403,7 @@ svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-lin
 
   function fromHash(){var k=location.hash.replace('#','').trim()||location.pathname.replace(/^\/+|\/+$/g,'');if(!k)return null;
     var s=raw.filter(function(x){return x.id===k||String(x.no)===k;})[0];return s?s.id:null;}
+  $('count').textContent=songs.length+(songs.length===1?' song':' songs');
   renderList();
   var h=fromHash();
   if(h){show(h,false);}
