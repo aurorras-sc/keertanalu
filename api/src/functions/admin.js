@@ -25,9 +25,15 @@ app.http("adminFetch", {
   route: "admin/fetch", methods: ["POST"], authLevel: "anonymous",
   handler: async (req) => {
     if (!authed(req)) return { status: 401, jsonBody: { error: "wrong password" } };
-    const { url } = await req.json();
-    const m = ID.exec(url || "");
-    if (!m) return { status: 400, jsonBody: { error: "That is not a Suno song link" } };
+    let { url } = await req.json();
+    url = String(url || "").trim();
+    // Short links (suno.com/s/xxxx) redirect to the full song page; follow them.
+    if (!ID.test(url) && /suno\.com\/s\//i.test(url)) {
+      const rr = await fetch(url, { redirect: "follow", headers: { "User-Agent": "Mozilla/5.0" } });
+      url = rr.url;
+    }
+    const m = ID.exec(url);
+    if (!m) return { status: 400, jsonBody: { error: "That is not a Suno song link (expected suno.com/song/… or suno.com/s/…)" } };
     const id = m[1];
     const r = await fetch("https://suno.com/song/" + id, { headers: { "User-Agent": "Mozilla/5.0" } });
     if (!r.ok) return { status: 502, jsonBody: { error: "Suno returned " + r.status + ". Is the song public?" } };
@@ -36,7 +42,7 @@ app.http("adminFetch", {
     let lyrics = "";
     const pm = /\\"prompt\\":\\"((?:[^"\\]|\\.)*?)\\"/.exec(html) || /"prompt":"((?:[^"\\]|\\.)*?)"/.exec(html);
     if (pm) { try { lyrics = JSON.parse('"' + pm[1].replace(/\\\\/g, "\\") + '"'); } catch (e) { lyrics = pm[1].replace(/\\n/g, "\n"); } }
-    return { jsonBody: { id, title: og("title"), image: og("image") || `https://cdn2.suno.ai/image_large_${id}.jpeg`, lyrics: cleanLyrics(lyrics), rawLyrics: lyrics } };
+    return { jsonBody: { id, url: "https://suno.com/song/" + id, title: og("title"), image: og("image") || `https://cdn2.suno.ai/image_large_${id}.jpeg`, lyrics: cleanLyrics(lyrics), rawLyrics: lyrics } };
   }
 });
 

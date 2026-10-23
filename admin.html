@@ -71,20 +71,21 @@ a{color:inherit}
     try{sessionStorage.setItem('k',key());}catch(e){}
     $('fetch').disabled=true;msg($('m1'),'Fetching from Suno…','ok');
     fetch('api/admin/fetch',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':key()},body:JSON.stringify({url:$('url').value.trim()})})
-    .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});})
+    .then(function(r){return r.text().then(function(t){var d;try{d=JSON.parse(t);}catch(e){d={error:'Server replied '+r.status+' (not JSON). The API may still be deploying; wait two minutes and retry.'};}return {ok:r.ok,d:d};});})
     .then(function(x){$('fetch').disabled=false;
       if(!x.ok){msg($('m1'),x.d.error||'Could not fetch.','err');return;}
       msg($('m1'),'Found it. Check the details below.','ok');
+      if(x.d.url)$('url').value=x.d.url;
       $('img').src=x.d.image;$('t').textContent=x.d.title;$('idl').textContent='Song id '+x.d.id;
       $('title').value=x.d.title;$('lyrics').value=x.d.lyrics;$('english').value='';$('tags').value='';
       $('step2').style.display='block';$('step2').scrollIntoView({behavior:'smooth'});
-    }).catch(function(){$('fetch').disabled=false;msg($('m1'),'Network error. Try again.','err');});
+    }).catch(function(e){$('fetch').disabled=false;msg($('m1'),'Could not reach the server: '+e.message,'err');});
   });
   $('publish').addEventListener('click',function(){
     $('publish').disabled=true;msg($('m2'),'Publishing…','ok');
     var body={url:$('url').value.trim(),title:$('title').value.trim(),english:$('english').value.trim(),tags:$('tags').value.split(',').map(function(t){return t.trim();}).filter(Boolean),date:$('date').value,lyrics:$('lyrics').value.trim()};
     fetch('api/admin/publish',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':key()},body:JSON.stringify(body)})
-    .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});})
+    .then(function(r){return r.text().then(function(t){var d;try{d=JSON.parse(t);}catch(e){d={error:'Server replied '+r.status+' (not JSON).'};}return {ok:r.ok,d:d};});})
     .then(function(x){
       if(!x.ok){$('publish').disabled=false;msg($('m2'),x.d.error||'Could not publish.','err');return;}
       msg($('m2'),'Published. The site updates itself in about two minutes. You can add another song.','ok');
