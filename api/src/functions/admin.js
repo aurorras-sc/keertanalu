@@ -21,10 +21,10 @@ function cleanLyrics(raw) {
     .join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
-app.http("adminFetch", {
+app.http("adminfetch", {
   methods: ["GET", "POST"], authLevel: "anonymous",
   handler: async (req) => {
-    if (req.method === "GET") return { jsonBody: { ok: true, function: "adminFetch", passwordSet: !!process.env.ADMIN_PASSWORD, repoSet: !!process.env.GITHUB_REPO, tokenSet: !!process.env.GITHUB_TOKEN } };
+    if (req.method === "GET") return { jsonBody: { ok: true, function: "adminfetch", passwordSet: !!process.env.ADMIN_PASSWORD, repoSet: !!process.env.GITHUB_REPO, tokenSet: !!process.env.GITHUB_TOKEN } };
     if (!authed(req)) return { status: 401, jsonBody: { error: "wrong password" } };
     let { url } = await req.json();
     url = String(url || "").trim();
@@ -47,7 +47,7 @@ app.http("adminFetch", {
   }
 });
 
-app.http("adminPublish", {
+app.http("adminpublish", {
   methods: ["POST"], authLevel: "anonymous",
   handler: async (req) => {
     if (!authed(req)) return { status: 401, jsonBody: { error: "wrong password" } };

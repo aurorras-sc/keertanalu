@@ -70,7 +70,7 @@ a{color:inherit}
     if(!key()){msg($('m1'),'Enter the admin password.','err');return;}
     try{sessionStorage.setItem('k',key());}catch(e){}
     $('fetch').disabled=true;msg($('m1'),'Fetching from Suno…','ok');
-    fetch('api/adminFetch',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':key()},body:JSON.stringify({url:$('url').value.trim()})})
+    fetch('api/adminfetch',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':key()},body:JSON.stringify({url:$('url').value.trim()})})
     .then(function(r){return r.text().then(function(t){var d;try{d=JSON.parse(t);}catch(e){d={error:'Server replied '+r.status+' (not JSON). The API may still be deploying; wait two minutes and retry.'};}return {ok:r.ok,d:d};});})
     .then(function(x){$('fetch').disabled=false;
       if(!x.ok){msg($('m1'),x.d.error||'Could not fetch.','err');return;}
@@ -84,7 +84,7 @@ a{color:inherit}
   $('publish').addEventListener('click',function(){
     $('publish').disabled=true;msg($('m2'),'Publishing…','ok');
     var body={url:$('url').value.trim(),title:$('title').value.trim(),english:$('english').value.trim(),tags:$('tags').value.split(',').map(function(t){return t.trim();}).filter(Boolean),date:$('date').value,lyrics:$('lyrics').value.trim()};
-    fetch('api/adminPublish',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':key()},body:JSON.stringify(body)})
+    fetch('api/adminpublish',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':key()},body:JSON.stringify(body)})
     .then(function(r){return r.text().then(function(t){var d;try{d=JSON.parse(t);}catch(e){d={error:'Server replied '+r.status+' (not JSON).'};}return {ok:r.ok,d:d};});})
     .then(function(x){
       if(!x.ok){$('publish').disabled=false;msg($('m2'),x.d.error||'Could not publish.','err');return;}
