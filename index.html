@@ -286,14 +286,14 @@ svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-lin
     comments(s);
     document.body.classList.add('viewing');
     $('stage').scrollTop=0;window.scrollTo(0,0);
-    if(push!==false)history.replaceState(null,'','#'+id);
+    if(push!==false)history.replaceState(null,'','#'+s.no);
     document.title=s.title+' — కీర్తనలు';
     renderList();
   }
   $('songs').addEventListener('click',function(e){var b=e.target.closest('.song');if(b)show(b.dataset.id);});
   $('back').addEventListener('click',function(){document.body.classList.remove('viewing');});
   function toast(msg){var t=$('toast');t.textContent=msg;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(function(){t.classList.remove('on');},1800);}
-  function shareUrl(s){var base=location.origin+location.pathname.replace(/[^\/]*$/,'');return base+'s/'+s.id+'.html';}
+  function shareUrl(s){var base=location.origin+location.pathname.replace(/[^\/]*$/,'');return base+'s/'+s.no;}
   $('s-share').addEventListener('click',function(){
     var url=shareUrl(cur),text=cur.title+(cur.english?' — '+cur.english:'');
     if(navigator.share){navigator.share({title:cur.title,text:text,url:url}).catch(function(){});}
@@ -358,11 +358,13 @@ svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-lin
     else if(window.CUSDIS&&window.CUSDIS.initial){window.CUSDIS.initial();}
   }
 
+  function fromHash(){var k=location.hash.replace('#','').trim()||location.pathname.replace(/^\/+|\/+$/g,'');if(!k)return null;
+    var s=raw.filter(function(x){return x.id===k||String(x.no)===k;})[0];return s?s.id:null;}
   renderList();
-  var h=location.hash.replace('#','');
-  if(h&&raw.some(function(s){return s.id===h;})){show(h,false);}
+  var h=fromHash();
+  if(h){show(h,false);}
   else if(songs.length&&window.innerWidth>900){show(songs[0].id,false);document.body.classList.remove('viewing');}
-  window.addEventListener('hashchange',function(){var h=location.hash.replace('#','');if(h&&raw.some(function(s){return s.id===h;}))show(h,false);});
+  window.addEventListener('hashchange',function(){var h=fromHash();if(h)show(h,false);});
 })();
 </script>
 </body>
