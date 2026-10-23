@@ -235,7 +235,9 @@ svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-lin
 (function(){
   var raw=(window.SONGS||[]).map(function(s){var m=/\/song\/([0-9a-f-]{36})/i.exec(s.url||'');return Object.assign({},s,{id:m?m[1]:null});}).filter(function(s){return s.id;});
   // Hymn numbers are stable: oldest song is 1.
-  var byDate=raw.slice().sort(function(a,b){return (a.date||'').localeCompare(b.date||'');});
+  raw.forEach(function(s,i){s._i=i;});
+  // oldest first; on the same date, the one lower in songs.js is older (new songs are added at the top)
+  var byDate=raw.slice().sort(function(a,b){return (a.date||'').localeCompare(b.date||'')||(b._i-a._i);});
   byDate.forEach(function(s,i){s.no=s.number||i+1;});
   var songs=raw.slice().sort(function(a,b){return b.no-a.no;}); // newest first in the index
   var $=function(id){return document.getElementById(id);};

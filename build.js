@@ -6,7 +6,8 @@ const ctx = { window: {} }; vm.runInNewContext(fs.readFileSync("songs.js", "utf8
 const songs = (ctx.window.SONGS || []).filter(s => /\/song\/([0-9a-f-]{36})/i.test(s.url || ""));
 
 const esc = s => String(s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const byDate = songs.slice().sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+songs.forEach((s, i) => { s._i = i; });
+const byDate = songs.slice().sort((a, b) => (a.date || "").localeCompare(b.date || "") || (b._i - a._i));
 byDate.forEach((s, i) => { s.no = s.number || i + 1; });
 for (const s of songs) {
   const id = /\/song\/([0-9a-f-]{36})/i.exec(s.url)[1];
