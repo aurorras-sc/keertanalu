@@ -47,9 +47,9 @@ a{color:inherit}
     <div class="msg" id="m1"></div>
   </div>
   <div class="card">
-    <label>Audio files</label>
-    <p class="help" style="margin-bottom:12px">Songs play from your own storage, not Suno’s player. New songs are stored automatically when published. Use this once for songs added earlier.</p>
-    <button id="audio" type="button">Store audio for existing songs</button>
+    <label>Audio and cover images</label>
+    <p class="help" style="margin-bottom:12px">Songs play from your own storage with your own player. New songs are stored automatically when published. Press this after changing a cover image on Suno, or once for songs added earlier.</p>
+    <button id="audio" type="button">Sync audio and covers from Suno</button>
     <div class="msg" id="m3"></div>
   </div>
 
@@ -94,7 +94,7 @@ a{color:inherit}
     .then(function(r){return r.text().then(function(t){var d;try{d=JSON.parse(t);}catch(e){d={error:'Server replied '+r.status};}return {ok:r.ok,d:d};});})
     .then(function(x){$('audio').disabled=false;
       if(!x.ok){msg($('m3'),x.d.error||'Failed.','err');return;}
-      msg($('m3'),'Stored '+x.d.stored+' song(s).'+(x.d.failed.length?' Failed: '+x.d.failed.join('; '):'')+(x.d.stored?' The site updates in about two minutes.':''),'ok');
+      msg($('m3'),'Synced '+x.d.stored+' song(s).'+(x.d.failed.length?' Failed: '+x.d.failed.join('; '):'')+(x.d.stored?' The site updates in about two minutes.':''),'ok');
     }).catch(function(e){$('audio').disabled=false;msg($('m3'),'Could not reach the server: '+e.message,'err');});
   });
   $('publish').addEventListener('click',function(){

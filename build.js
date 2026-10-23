@@ -18,8 +18,8 @@ for (const s of songs) {
 <meta name="description" content="${esc(desc)}">
 <meta property="og:type" content="music.song"><meta property="og:site_name" content="కీర్తనలు">
 <meta property="og:title" content="${esc(s.title)}"><meta property="og:description" content="${esc(desc)}">
-<meta property="og:image" content="https://cdn2.suno.ai/image_large_${id}.jpeg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
-<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(s.title)}"><meta name="twitter:image" content="https://cdn2.suno.ai/image_large_${id}.jpeg">
+<meta property="og:image" content="${esc(s.image || "https://cdn2.suno.ai/image_large_" + id + ".jpeg")}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(s.title)}"><meta name="twitter:image" content="${esc(s.image || "https://cdn2.suno.ai/image_large_" + id + ".jpeg")}">
 <meta http-equiv="refresh" content="0; url=/#${s.no}">
 <script>location.replace("/#${s.no}");</script>
 </head><body style="font-family:system-ui;padding:40px;text-align:center"><p><a href="/#${s.no}">${esc(s.title)}</a></p></body></html>`;

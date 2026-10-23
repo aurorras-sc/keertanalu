@@ -297,7 +297,7 @@ svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-lin
   byDate.forEach(function(s,i){s.no=s.number||i+1;});
   var songs=raw.slice().sort(function(a,b){return b.no-a.no;}); // newest first in the index
   var $=function(id){return document.getElementById(id);};
-  var cover=function(id){return 'https://cdn2.suno.ai/image_large_'+id+'.jpeg';};
+  var cover=function(id){var s=raw.filter(function(x){return x.id===id;})[0];return (s&&s.image)||'https://cdn2.suno.ai/image_large_'+id+'.jpeg';};
   var esc=function(s){return String(s||'').replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
 
   var tags={};raw.forEach(function(s){(s.tags||[]).forEach(function(t){tags[t]=1;});});

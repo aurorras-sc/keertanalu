@@ -57,6 +57,22 @@ async function storeAudio(id) {
   }
   return blob.url;
 }
+// Copy the song's current cover from Suno into our Blob container (always overwrites, so a changed cover is picked up).
+async function storeCover(id) {
+  const page = await fetch("https://suno.com/song/" + id, { headers: { "User-Agent": "Mozilla/5.0" } });
+  if (!page.ok) throw new Error("Suno page returned " + page.status);
+  const html = await page.text();
+  const m = /property="og:image"\s+content="([^"]+)"/.exec(html) || /content="([^"]+)"\s+property="og:image"/.exec(html);
+  const src = m ? m[1].replace(/&amp;/g, "&") : "https://cdn2.suno.ai/image_large_" + id + ".jpeg";
+  const img = await fetch(src, { headers: { "User-Agent": "Mozilla/5.0" } });
+  if (!img.ok) throw new Error("cover returned " + img.status);
+  const svc = BlobServiceClient.fromConnectionString(process.env.TABLE_CONNECTION_STRING);
+  const container = svc.getContainerClient("songs");
+  await container.createIfNotExists({ access: "blob" });
+  const blob = container.getBlockBlobClient(id + ".jpeg");
+  await blob.uploadData(Buffer.from(await img.arrayBuffer()), { blobHTTPHeaders: { blobContentType: "image/jpeg", blobCacheControl: "public, max-age=86400" } });
+  return blob.url + "?v=" + Date.now().toString(36);
+}
 async function adminAudioOp(req) {
   if (!authed(req)) return { status: 401, jsonBody: { error: "wrong password" } };
   // Backfill: give every song in songs.js an audio file, commit once.
@@ -68,15 +84,20 @@ async function adminAudioOp(req) {
   const ids = [...text.matchAll(/url: "https:\/\/suno\.com\/song\/([0-9a-f-]{36})/g)].map(m => m[1]);
   const done = [], failed = [];
   for (const id of ids) {
-    if (new RegExp('audio: "[^"]*' + id).test(text)) continue;
     try {
-      const url = await storeAudio(id);
-      text = text.replace(new RegExp('(url: "https:\\/\\/suno\\.com\\/song\\/' + id + '[^\n]*\n)'), '$1    audio: ' + JSON.stringify(url) + ',\n');
+      const line = new RegExp('(url: "https:\\/\\/suno\\.com\\/song\\/' + id + '[^\n]*\n)');
+      if (!new RegExp('audio: "[^"]*' + id).test(text)) {
+        const url = await storeAudio(id);
+        text = text.replace(line, '$1    audio: ' + JSON.stringify(url) + ',\n');
+      }
+      const img = await storeCover(id);
+      text = text.replace(new RegExp('\n\\s*image: "[^"]*' + id + '[^"]*",'), "");
+      text = text.replace(line, '$1    image: ' + JSON.stringify(img) + ',\n');
       done.push(id);
     } catch (e) { failed.push(id + ": " + e.message); }
   }
   if (done.length) {
-    const put = await (await gh("songs.js", { method: "PUT", body: JSON.stringify({ message: "Store audio for " + done.length + " song(s)", content: Buffer.from(text, "utf8").toString("base64"), sha: cur.sha }) })).json();
+    const put = await (await gh("songs.js", { method: "PUT", body: JSON.stringify({ message: "Sync audio and covers for " + done.length + " song(s)", content: Buffer.from(text, "utf8").toString("base64"), sha: cur.sha }) })).json();
     if (!put.commit) return { status: 500, jsonBody: { error: "GitHub refused the update: " + (put.message || "") } };
   }
   return { jsonBody: { stored: done.length, failed } };
@@ -115,12 +136,14 @@ async function adminPublishOp(req) {
     let text = Buffer.from(cur.content, "base64").toString("utf8");
     const id = SONG.exec(s.url)[1];
     if (text.includes(id)) return { status: 409, jsonBody: { error: "This song is already on the site" } };
-    let audio = "";
+    let audio = "", image = "";
     try { audio = await storeAudio(id); } catch (e) { audio = ""; }
+    try { image = await storeCover(id); } catch (e) { image = ""; }
     const block = [
       "  {",
       "    url: " + JSON.stringify(s.url) + ",",
       "    audio: " + JSON.stringify(audio) + ",",
+      "    image: " + JSON.stringify(image) + ",",
       "    title: " + JSON.stringify(s.title) + ",",
       "    english: " + JSON.stringify(s.english || "") + ",",
       "    tags: " + JSON.stringify((s.tags || []).map(t => String(t).trim().toLowerCase()).filter(Boolean)) + ",",
